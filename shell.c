@@ -3,14 +3,18 @@
 #include <unistd.h>
 #include <stdlib.h>
 #define PROMPT_SIZE 25
-#define CMD_SIZE 128
+#define IN_SIZE 128
+#define CMD_SIZE 64
 #define OUTPUT_SIZE 128
+#define MAX_ARG_SIZE 64
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv) 
+{
         // Get the custom prompt, if there is one:
         char prompt[PROMPT_SIZE];
-        char curr_cmd[CMD_SIZE];
+        char curr_input[IN_SIZE];
         char cmd_output[OUTPUT_SIZE];
+        char curr_cmd[CMD_SIZE];
 
         if (argc > 1) {
                 if (strcmp(argv[1], "-p") == 0) {
@@ -26,12 +30,14 @@ int main(int argc, char **argv) {
 
         while(1) {
                 printf("%s", prompt);
-                fgets(curr_cmd, CMD_SIZE, stdin);
+                fgets(curr_input, IN_SIZE, stdin);
 
-                // fgets appends the newline character which we do not want
-                if (strlen(curr_cmd) > 1) {
-                        curr_cmd[strlen(curr_cmd) - 1] = '\0';
+                // fgets() appends the newline character which is undesired
+                if (strlen(curr_input) > 1) {
+                        curr_input[strlen(curr_input) - 1] = '\0';
                 }
+
+                strcpy(curr_cmd, strtok(curr_input, " "));
  
                 // No string switches in C, prepare for endless if-else ladder 
                 if (strcmp(curr_cmd, "exit") == 0) {
@@ -39,6 +45,55 @@ int main(int argc, char **argv) {
                 } else if (strcmp(curr_cmd, "pwd") == 0) {
                         getcwd(cmd_output, OUTPUT_SIZE);
                         printf("%s\n", cmd_output); 
+                } else if (strcmp(curr_cmd, "pid") == 0) {
+                        printf("%d\n", getpid());
+                } else if (strcmp(curr_cmd, "ppid") == 0) {
+                        printf("%d\n", getppid());
+                } else if (strcmp(curr_cmd, "cd") == 0) {
+                        char dir[MAX_ARG_SIZE];
+                        char *tok = strtok(NULL, " ");
+                        if (tok == NULL) {
+                                // Change to user's home directory
+                                strcpy(dir, getenv("HOME"));
+                        } else {
+                                strcpy(dir, tok);
+                        }
+                        int resp = chdir(dir);
+                        if (resp < 0) {
+                                perror("ERROR");
+                        }
+                } else if (strcmp(curr_cmd, "set") == 0) {
+                        char *tok1 = strtok(NULL, " ");
+                        char *tok2 = strtok(NULL, " ");
+                        int resp;
+                        if (tok1 == NULL) {
+                                printf("USAGE: set <var>"
+                                       " <value or empty to reset>\n");
+                        } else if (tok2 == NULL) {
+                                // Reset <var>
+                                resp = unsetenv(tok1);
+                                if (resp < 0) {
+                                        perror("ERROR");
+                                } else {
+                                        printf("Var %s reset.\n", tok1);
+                                }
+                        } else {
+                                // Set <value> to <var>
+                                resp = setenv(tok1, tok2, 1);
+                                if (resp < 0) {
+                                        perror("ERROR");
+                                } else {
+                                        printf("Var %s set to %s.\n", tok1, getenv(tok1));
+                                }
+                    
+                        }
+                } else if (strcmp(curr_cmd, "get") == 0) {
+                        char *tok1 = strtok(NULL, " ");
+                        if (tok1 == NULL) {
+                                printf("Provide a variable to get.\n");
+                        } else {
+                                printf("%s\n", getenv(tok1));
+                        }
                 } else {
                         printf("Command not supported or located\n");
                 } 
