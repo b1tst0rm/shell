@@ -145,20 +145,30 @@ int run_command(char* input)
         }
        
         pid_t pid;
-        int resp;
+        int status;
 
         if ((pid = fork()) < 0) {
                 perror("FORK ERROR");
         } else if (pid == 0) {
                 // Child process here
                 printf("Child PID: %d\n", getpid());
+                printf("-------------------------\n");
                 if (execvp(args[0], args) < 0) {
                     perror("EXECVP ERROR");
                 }
         } else {
                 // Parent process here
-                while (wait(&resp) != pid) {
+                while (wait(&status) != pid) {
                     // Block until child process completes
+                }
+                
+                if (WIFEXITED(status)) {
+                        printf("-------------------------\n");
+                        int exit_status = WEXITSTATUS(status);
+                        if (exit_status == EXIT_SUCCESS) {
+                                printf("Exited successfully with with code"
+                                       " %d\n", exit_status);
+                        }
                 }
         }
         return 0;
