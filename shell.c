@@ -2,20 +2,27 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
 #define PROMPT_SIZE 25
 #define IN_SIZE 128
 #define CMD_SIZE 64
 #define OUTPUT_SIZE 128
 #define MAX_ARG_SIZE 64
+#define MAX_ARGS 5
+
+int run_command(char* input);
 
 int main(int argc, char **argv) 
 {
-        // Get the custom prompt, if there is one:
         char prompt[PROMPT_SIZE];
         char curr_input[IN_SIZE];
+        char curr_input_bak[IN_SIZE];
         char cmd_output[OUTPUT_SIZE];
         char curr_cmd[CMD_SIZE];
 
+        // Get the custom prompt, if there is one:
         if (argc > 1) {
                 if (strcmp(argv[1], "-p") == 0) {
                         strncpy(prompt, argv[2], PROMPT_SIZE);
@@ -37,6 +44,7 @@ int main(int argc, char **argv)
                         curr_input[strlen(curr_input) - 1] = '\0';
                 }
 
+                strcpy(curr_input_bak, curr_input);
                 strcpy(curr_cmd, strtok(curr_input, " "));
  
                 // No string switches in C, prepare for endless if-else ladder 
@@ -83,7 +91,8 @@ int main(int argc, char **argv)
                                 if (resp < 0) {
                                         perror("ERROR");
                                 } else {
-                                        printf("Var %s set to %s.\n", tok1, getenv(tok1));
+                                        printf("Var %s set to %s.\n", 
+                                               tok1, getenv(tok1));
                                 }
                     
                         }
@@ -95,9 +104,62 @@ int main(int argc, char **argv)
                                 printf("%s\n", getenv(tok1));
                         }
                 } else {
-                        printf("Command not supported or located\n");
+                        // Not a built-in command, attempt to run executable
+                        int resp = run_command(curr_input_bak);
                 } 
         }
         
+        return 0;
+}
+
+int run_command(char* input)
+{
+        int is_background;
+
+        // Determines if process should be set to background and removes &
+        if (input[strlen(input) - 2] == '&') {
+                is_background = 1;
+                input[strlen(input) - 2] = '\0';
+        }
+    
+        // Determine number of arguments
+        char *args[MAX_ARGS + 1]; // Argument list, plus 1 for the NULL
+
+        // Build list of arguments for execvp
+        char *tok = strtok(input, " ");
+
+        int i = 0;
+        while(tok != NULL && i < MAX_ARGS) {
+                args[i] = malloc(MAX_ARG_SIZE);
+                strcpy(args[i], tok);
+                tok = strtok(NULL, " ");
+                i++;
+        }
+
+        args[i] = NULL;
+
+        i = 0;
+        while (args[i] != NULL) {
+                printf("ARG: |%s|\n", args[i]);
+                i++;
+        }
+       
+        pid_t pid;
+        int resp;
+
+        if ((pid = fork()) < 0) {
+                perror("FORK ERROR");
+        } else if (pid == 0) {
+                // Child process here
+                printf("Child PID: %d\n", getpid());
+                if (execvp(args[0], args) < 0) {
+                    perror("EXECVP ERROR");
+                }
+        } else {
+                // Parent process here
+                while (wait(&resp) != pid) {
+                    // Block until child process completes
+                }
+        }
         return 0;
 }
