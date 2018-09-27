@@ -162,10 +162,14 @@ int run_command(char* input)
                 perror("FORK ERROR");
         } else if (pid == 0) {
                 // Child process here
-                printf("Child PID: %d\n", getpid());
-                printf("-------------------------\n");
+                printf("\nChild PID: %d\n", getpid());
+                if (!is_background) {
+                        printf("-------------------------\n");
+                }
                 if (execvp(args[0], args) < 0) {
                         perror("EXECVP ERROR");
+                        printf("-------------------------\n");
+                        printf("%d terminated.\n", getpid());
                 }
         } else {
                 // Parent process here
@@ -173,18 +177,26 @@ int run_command(char* input)
                         while (wait(&status) != pid) {
                                 // Block until child process completes
                         }
-                    
-                        if (WIFEXITED(status)) {
-                                printf("-------------------------\n");
-                                int exit_status = WEXITSTATUS(status);
-                                if (exit_status == EXIT_SUCCESS) {
-                                        printf("Exited successfully with code"
-                                               " %d\n", exit_status);
-                                } else {
-                                        printf("Exited with code %d\n",
-                                               exit_status);
-                                }
+                }    
+                
+                if (WIFEXITED(status)) {
+                        printf("-------------------------\n");
+                        int exit_status = WEXITSTATUS(status);
+                        if (exit_status == EXIT_SUCCESS) {
+                                printf("Exited successfully with code"
+                                       " %d\n", exit_status);
+                        } else {
+                                printf("Exited with code %d\n",
+                                       exit_status);
                         }
+                } else if (WIFSIGNALED(status)) {
+                        printf("-------------------------\n");
+                        int term_status = WTERMSIG(status);
+                        printf("Terminated with code %d\n", term_status);
+                } else if (WIFSTOPPED(status)) {
+                        printf("-------------------------\n");
+                        int stop_status = WSTOPSIG(status);
+                        printf("Stopped with code %d\n", stop_status);
                 }
         }
         return 0;
