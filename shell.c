@@ -39,6 +39,14 @@ int main(int argc, char **argv)
                 printf("%s", prompt);
                 fgets(curr_input, IN_SIZE, stdin);
 
+                // Check to see if any background processes have exited
+                int bg_status;
+                int exited_pid = waitpid(-1, &bg_status, WNOHANG);
+                if (exited_pid > 0) {
+                        printf("Background process with PID of %d has "
+                               "exited with code %d\n", exited_pid, bg_status);
+                }
+
                 // fgets() appends the newline character which is undesired
                 if (strlen(curr_input) > 1) {
                         curr_input[strlen(curr_input) - 1] = '\0';
@@ -103,6 +111,8 @@ int main(int argc, char **argv)
                         } else {
                                 printf("%s\n", getenv(tok1));
                         }
+                } else if (strcmp(curr_cmd, "\n") == 0) { 
+                        // Do nothing for empty command
                 } else {
                         // Not a built-in command, attempt to run executable
                         int resp = run_command(curr_input_bak);
@@ -114,14 +124,8 @@ int main(int argc, char **argv)
 
 int run_command(char* input)
 {
-        int is_background;
+        int is_background = 0;
 
-        // Determines if process should be set to background and removes &
-        if (input[strlen(input) - 2] == '&') {
-                is_background = 1;
-                input[strlen(input) - 2] = '\0';
-        }
-    
         // Determine number of arguments
         char *args[MAX_ARGS + 1]; // Argument list, plus 1 for the NULL
 
@@ -136,7 +140,14 @@ int run_command(char* input)
                 i++;
         }
 
-        args[i] = NULL;
+        // Determines if process should be set to background and removes &
+        if (strcmp(args[i - 1], "&") == 0) {
+                is_background = 1;
+                args[i - 1] = NULL;
+                printf("BACKGROUND DETECTED\n");
+        } else {
+                args[i] = NULL;
+        }
 
         i = 0;
         while (args[i] != NULL) {
@@ -154,20 +165,25 @@ int run_command(char* input)
                 printf("Child PID: %d\n", getpid());
                 printf("-------------------------\n");
                 if (execvp(args[0], args) < 0) {
-                    perror("EXECVP ERROR");
+                        perror("EXECVP ERROR");
                 }
         } else {
                 // Parent process here
-                while (wait(&status) != pid) {
-                    // Block until child process completes
-                }
-                
-                if (WIFEXITED(status)) {
-                        printf("-------------------------\n");
-                        int exit_status = WEXITSTATUS(status);
-                        if (exit_status == EXIT_SUCCESS) {
-                                printf("Exited successfully with with code"
-                                       " %d\n", exit_status);
+                if (!is_background) {
+                        while (wait(&status) != pid) {
+                                // Block until child process completes
+                        }
+                    
+                        if (WIFEXITED(status)) {
+                                printf("-------------------------\n");
+                                int exit_status = WEXITSTATUS(status);
+                                if (exit_status == EXIT_SUCCESS) {
+                                        printf("Exited successfully with code"
+                                               " %d\n", exit_status);
+                                } else {
+                                        printf("Exited with code %d\n",
+                                               exit_status);
+                                }
                         }
                 }
         }
